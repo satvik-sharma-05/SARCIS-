@@ -1,13 +1,13 @@
 """
-Audio Processing Pipeline - Clean & Interview-Friendly
+Audio Processing Pipeline - Clean & Simple
 
-SIMPLE FLOW:
+FLOW:
 Audio File → Transcribe → Translate → LLM Analysis → Save Results
 
 FEATURES:
-- Groq Whisper API (fast) with local Whisper fallback
+- Groq Whisper API (fast) with local fallback
 - Hindi/English translation
-- LLM-powered intelligence
+- LLM-powered intelligence analysis
 - Sequential processing for stability
 """
 
@@ -24,7 +24,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from collections import Counter
 
-# Clean console output
+# Suppress warnings for clean output
 warnings.filterwarnings("ignore")
 load_dotenv()
 
@@ -38,11 +38,11 @@ whisper_lock = threading.Lock()
 
 print("🔧 Loading models...")
 
-# Whisper for transcription
+# Load Whisper model for transcription
 whisper_model = whisper.load_model(os.getenv("WHISPER_MODEL", "medium"))
-print("✅ Whisper loaded")
+print(f"✅ Whisper loaded")
 
-# Translator for Hindi→English
+# Load translator for Hindi→English
 try:
     translator_tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-hi-en")
     translator_model = MarianMTModel.from_pretrained("Helsinki-NLP/opus-mt-hi-en")
@@ -52,7 +52,7 @@ except Exception as e:
     translator_tokenizer = None
     print(f"⚠️ Translator failed: {e}")
 
-# Groq client for LLM and Whisper API
+# Load Groq client for LLM and Whisper API
 try:
     from groq import Groq
     groq_api_key = os.getenv("GROQ_API_KEY")
@@ -161,27 +161,38 @@ def translate(text, source_language):
     """
     Translate text from Hindi/Urdu to English.
     
-    Returns: translated_text or None
+    Returns: tran
+            start = time.time()
+            result = transcribe_local(audio_path)
+            elapsed = time.time() - start
+            print(f"  ✅ Local transcription: {elapsed:.2f}s")
+            return result, "local", elapsed
+        
+        except Exception as local_error:
+            raise Exception(f"Both transcription methods failed. Groq: {e}, Local: {local_error}")
+
+def translate_full_text(text: str, source_lang: str) -> Optional[str]:
     """
-    # Skip if already English or empty
-    if source_language == "en" or not text.strip():
+    Translate full transcript ONCE (not per segment).
+    Much faster than translating each segment separately.
+    """
+    if source_lang == "en" or not text.strip():
         return None
     
     # Treat Urdu as Hindi
-    if source_language == "ur":
-        source_language = "hi"
+    if source_lang == "ur":
+        source_lang = "hi"
     
-    # Check if translator is available
-    if not translator_model or not translator_tokenizer:
+    if translator_model is None or translator_tokenizer is None:
         return None
     
     try:
-        # Split long text into chunks (max 400 words per chunk)
+        # Split into chunks if too long (max 512 tokens)
+        max_length = 400  # Leave room for tokenization
         words = text.split()
         chunks = []
         current_chunk = []
         current_length = 0
-        max_length = 400
         
         for word in words:
             current_length += len(word) + 1
@@ -195,16 +206,10 @@ def translate(text, source_language):
         if current_chunk:
             chunks.append(' '.join(current_chunk))
         
-        # Translate each chunk
+        # Translate all chunks
         translated_chunks = []
         for chunk in chunks:
-            inputs = translator_tokenizer(
-                chunk,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            )
+            inputs = translator_tokenizer(chunk, return_tensors="pt", padding=True, truncation=True, max_length=512)
             translated = translator_model.generate(**inputs)
             translated_text = translator_tokenizer.decode(translated[0], skip_special_tokens=True)
             translated_chunks.append(translated_text)
@@ -216,54 +221,51 @@ def translate(text, source_language):
         return None
 
 
-# ============================================================================
-# STEP 3: LLM ANALYSIS (Extract intelligence from transcript)
-# ============================================================================
-
-def analyze_with_llm(text, original_text=None):
+def analyze_with_llm(text: str, original_text: str = None) -> Optional[Dict]:
     """
-    Analyze full transcript with LLM to extract intelligence.
-    
-    Returns: analysis_dict with sentiment, intent, risk, etc.
+    Analyze FULL transcript with LLM (not per segment).
+    Returns file-level intelligence.
     """
-    if not groq_client:
+    if groq_client is None:
         return None
     
     try:
-        # Add context if we have original Hindi text
         context_note = ""
         if original_text and original_text != text:
-            context_note = f"\n\nOriginal (Hindi): \"{original_text[:500]}...\""
+            context_note = f"\n\nOriginal text (Hindi/Hinglish): \"{original_text[:500]}...\""
         
-        # Prompt for LLM
-        prompt = f"""You are an AI analyzing a customer service call.
+        prompt = f"""You are an advanced audio intelligence system analyzing a customer service call recording.
 
-Transcript: "{text[:2000]}..."{context_note}
+Full transcript: "{text[:2000]}..."{context_note}
 
-Analyze this conversation and return JSON with:
+Analyze this ENTIRE conversation and provide comprehensive intelligence.
+
+Return JSON with this EXACT structure:
 {{
   "overall_sentiment": {{
-    "type": "positive/negative/neutral/aggressive/frustrated/fearful/anxious/angry/disappointed/satisfied",
+    "type": "one of: positive, negative, neutral, aggressive, frustrated, fearful, anxious, angry, disappointed, satisfied",
     "intensity": 0.0 to 1.0
   }},
-  "primary_intent": "main purpose of call",
-  "priority": "low/medium/high/critical",
-  "risk_level": "low/moderate/high/extreme",
-  "urgency": "low/medium/high/immediate",
-  "key_events": ["complaint", "threat", "refund_demand", etc.],
-  "entities": ["names", "products", "amounts", "dates"],
-  "target": "who/what is targeted or null",
-  "summary": "2-3 sentence summary",
+  "primary_intent": "the main purpose of this call (be specific)",
+  "priority": "one of: low, medium, high, critical",
+  "risk_level": "one of: low, moderate, high, extreme",
+  "urgency": "one of: low, medium, high, immediate",
+  "key_events": ["array of main events: complaint, threat, refund_demand, technical_issue, etc."],
+  "entities": ["important entities: names, products, amounts, dates"],
+  "target": "who/what is being targeted or null",
+  "summary": "2-3 sentence summary of the entire conversation and why it matters",
   "confidence": 0.0 to 1.0
 }}
 
-Return ONLY valid JSON:"""
+Return ONLY valid JSON, no markdown:"""
 
-        # Call LLM
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are an AI that analyzes conversations. Always return valid JSON only."},
+                {
+                    "role": "system",
+                    "content": "You are an advanced audio intelligence system. Analyze conversations deeply. Always respond with valid JSON only."
+                },
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2,
@@ -271,46 +273,39 @@ Return ONLY valid JSON:"""
             timeout=10.0
         )
         
-        # Extract JSON from response
         content = response.choices[0].message.content.strip()
         
-        # Remove markdown code blocks if present
+        # Extract JSON
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
             content = content.split("```")[1].split("```")[0].strip()
         
-        # Parse JSON
-        analysis = json.loads(content)
+        result = json.loads(content)
         
-        # Validate sentiment structure
-        if not isinstance(analysis.get("overall_sentiment"), dict):
-            sentiment_type = analysis.get("overall_sentiment", "neutral")
-            analysis["overall_sentiment"] = {
+        # Validate structure
+        if not isinstance(result.get("overall_sentiment"), dict):
+            sentiment_type = result.get("overall_sentiment", "neutral")
+            result["overall_sentiment"] = {
                 "type": sentiment_type,
                 "intensity": 0.7
             }
         
-        return analysis
+        return result
     
     except Exception as e:
         print(f"  ⚠️ LLM analysis failed: {e}")
         return None
 
 
-# ============================================================================
-# STEP 4: CREATE SEGMENTS (Combine transcription + analysis)
-# ============================================================================
-
-def create_segments(transcript, file_analysis):
+def create_segments_from_whisper(whisper_result: dict, file_level_analysis: dict) -> List[dict]:
     """
-    Create segments from transcript and apply file-level analysis to each.
-    
-    Each segment inherits intelligence from the file-level analysis.
+    Create segment data from Whisper output + file-level LLM analysis.
+    Each segment inherits intelligence from file-level analysis.
     """
     segments = []
     
-    for seg in transcript["segments"]:
+    for seg in whisper_result["segments"]:
         text = seg["text"].strip()
         
         # Skip very short or low-confidence segments
@@ -318,100 +313,104 @@ def create_segments(transcript, file_analysis):
             continue
         
         # Build segment with file-level intelligence
-        segment = {
+        segment_data = {
             "start": round(seg["start"], 2),
             "end": round(seg["end"], 2),
             "text": text,
-            "language": transcript.get("language", "hi"),
+            "language": whisper_result.get("language", "hi"),
             
-            # Intelligence from file-level analysis
-            "events": file_analysis.get("key_events", ["general"]),
-            "sentiment": file_analysis.get("overall_sentiment", {}).get("type", "neutral"),
-            "sentiment_intensity": file_analysis.get("overall_sentiment", {}).get("intensity", 0.5),
-            "intent": file_analysis.get("primary_intent", "general_query"),
-            "priority": file_analysis.get("priority", "medium"),
-            "risk_level": file_analysis.get("risk_level", "low"),
-            "urgency": file_analysis.get("urgency", "medium"),
-            "entities": file_analysis.get("entities", []),
-            "confidence": file_analysis.get("confidence", 0.8),
-            "summary": file_analysis.get("summary", ""),
+            # Inherit from file-level analysis
+            "events": file_level_analysis.get("key_events", ["general"]),
+            "sentiment": file_level_analysis.get("overall_sentiment", {}).get("type", "neutral"),
+            "sentiment_intensity": file_level_analysis.get("overall_sentiment", {}).get("intensity", 0.5),
+            "intent": file_level_analysis.get("primary_intent", "general_query"),
+            "priority": file_level_analysis.get("priority", "medium"),
+            "risk_level": file_level_analysis.get("risk_level", "low"),
+            "urgency": file_level_analysis.get("urgency", "medium"),
+            "entities": file_level_analysis.get("entities", []),
+            "confidence": file_level_analysis.get("confidence", 0.8),
+            "summary": file_level_analysis.get("summary", ""),
             "analysis_source": "llm"
         }
         
-        # Add target if present
-        if file_analysis.get("target"):
-            segment["target"] = file_analysis["target"]
+        if file_level_analysis.get("target"):
+            segment_data["target"] = file_level_analysis["target"]
         
-        segments.append(segment)
+        segments.append(segment_data)
     
     return segments
 
 
-# ============================================================================
-# STEP 5: PROCESS SINGLE FILE (Main pipeline)
-# ============================================================================
-
-def process_file(file_record, cluster_id):
+def process_single_file(file_record: dict, cluster_id: str) -> dict:
     """
-    Process a single audio file through the complete pipeline.
+    Process a single audio file with optimized pipeline.
     
-    Pipeline:
-    1. Transcribe audio (Groq API or local Whisper)
-    2. Translate to English (if needed)
-    3. Analyze with LLM
-    4. Create segments with intelligence
-    5. Return results
+    PIPELINE:
+    1. Transcribe with Whisper (medium)
+    2. Translate ONCE (full transcript)
+    3. Analyze with LLM ONCE (full transcript)
+    4. Create segments with file-level intelligence
     """
-    start_time = time.time()
+    file_start = time.time()
     
     try:
         print(f"\n🔄 Processing: {file_record['file_name']}")
         
-        # Get file path
+        # Get file path - stored as "uploads/{cluster_id}/{filename}"
         file_path_str = file_record["file_path"]
-        backend_dir = Path(__file__).parent.parent
+        
+        # Resolve path relative to backend directory
+        # The script is in backend/services/processor.py
+        # Files are in backend/uploads/
+        backend_dir = Path(__file__).parent.parent  # Go up from services/ to backend/
         file_path = backend_dir / file_path_str
         
-        print(f"  📁 Path: {file_path}")
+        print(f"  📁 Looking for: {file_path}")
         
         if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+            print(f"  ❌ File not found at: {file_path}")
+            print(f"     Backend dir: {backend_dir}")
+            print(f"     Relative path: {file_path_str}")
+            raise FileNotFoundError(f"Audio file not found: {file_path}")
         
-        # STEP 1: Transcribe
-        print("  🎤 Transcribing...")
-        transcript, method, transcribe_time = transcribe(file_path)
+        # STEP 1: Transcribe with Groq API (with local fallback)
+        print(f"  🎤 Transcribing...")
+        transcribe_start = time.time()
         
-        detected_language = transcript.get("language", "hi")
-        full_text = transcript.get("text", "").strip()
+        result, transcribe_method, transcribe_time = transcribe(file_path)
         
-        if not full_text:
+        print(f"  ✅ Transcribed in {transcribe_time:.2f}s using {transcribe_method} ({len(result.get('segments', []))} segments)")
+        
+        detected_language = result.get("language", "hi")
+        full_transcript = result.get("text", "").strip()
+        
+        if not full_transcript:
             raise ValueError("Empty transcription")
         
-        print(f"  ✅ Transcribed using {method} ({len(transcript['segments'])} segments)")
-        
-        # STEP 2: Translate (if not English)
-        translated_text = None
-        analysis_text = full_text
+        # STEP 2: Translate ONCE (full transcript)
+        translate_start = time.time()
+        translated_transcript = None
+        analysis_text = full_transcript
         
         if detected_language != "en":
-            print("  🌐 Translating...")
-            translate_start = time.time()
-            translated_text = translate(full_text, detected_language)
-            if translated_text:
-                analysis_text = translated_text
+            print(f"  🌐 Translating full transcript...")
+            translated_transcript = translate_full_text(full_transcript, detected_language)
+            if translated_transcript:
+                analysis_text = translated_transcript
                 print(f"  ✅ Translated in {time.time() - translate_start:.2f}s")
         
-        # STEP 3: Analyze with LLM
-        print("  ✨ Analyzing with LLM...")
+        # STEP 3: Analyze with LLM ONCE (full transcript)
+        print(f"  ✨ Analyzing with LLM...")
         llm_start = time.time()
-        file_analysis = analyze_with_llm(analysis_text, full_text)
         
-        if file_analysis:
-            print(f"  ✅ LLM analysis in {time.time() - llm_start:.2f}s")
+        file_level_analysis = analyze_with_llm(analysis_text, full_transcript)
+        
+        if file_level_analysis:
+            llm_time = time.time() - llm_start
+            print(f"  ✅ LLM analysis in {llm_time:.2f}s")
         else:
-            # Fallback analysis if LLM fails
-            print("  ⚠️ LLM failed, using basic analysis")
-            file_analysis = {
+            print(f"  ⚠️ LLM failed, using basic analysis")
+            file_level_analysis = {
                 "overall_sentiment": {"type": "neutral", "intensity": 0.5},
                 "primary_intent": "general_query",
                 "priority": "medium",
@@ -424,13 +423,13 @@ def process_file(file_record, cluster_id):
                 "confidence": 0.5
             }
         
-        # STEP 4: Create segments
-        segments = create_segments(transcript, file_analysis)
+        # STEP 4: Create segments with file-level intelligence
+        segments = create_segments_from_whisper(result, file_level_analysis)
         
         # Add translated text to segments if available
-        if translated_text:
+        if translated_transcript:
             for seg in segments:
-                seg["translated_text"] = translated_text
+                seg["translated_text"] = translated_transcript
         
         # Calculate file summary
         total_segments = len(segments)
@@ -441,13 +440,13 @@ def process_file(file_record, cluster_id):
             "total_segments": total_segments,
             "negative_percentage": round((negative_count / total_segments * 100) if total_segments > 0 else 0, 1),
             "high_priority_count": high_priority_count,
-            "top_issue": file_analysis.get("key_events", ["general"])[0] if file_analysis.get("key_events") else "general",
-            "overall_sentiment": file_analysis.get("overall_sentiment", {}).get("type", "neutral"),
+            "top_issue": file_level_analysis.get("key_events", ["general"])[0] if file_level_analysis.get("key_events") else "general",
+            "overall_sentiment": file_level_analysis.get("overall_sentiment", {}).get("type", "neutral"),
             "language": detected_language
         }
         
-        total_time = time.time() - start_time
-        print(f"  ✅ Completed in {total_time:.2f}s")
+        total_time = time.time() - file_start
+        print(f"  ✅ Completed in {total_time:.2f}s (Transcribe[{transcribe_method}]: {transcribe_time:.2f}s)")
         
         return {
             "file_id": str(file_record["_id"]),
@@ -459,13 +458,13 @@ def process_file(file_record, cluster_id):
             "processing_time": {
                 "total": round(total_time, 2),
                 "transcription": round(transcribe_time, 2),
-                "transcription_method": method
+                "transcription_method": transcribe_method
             },
             "status": "success"
         }
     
     except Exception as e:
-        print(f"  ❌ Error: {e}")
+        print(f"  ❌ Error: {str(e)}")
         return {
             "file_id": str(file_record["_id"]),
             "file_name": file_record["file_name"],
@@ -475,19 +474,20 @@ def process_file(file_record, cluster_id):
         }
 
 
-# ============================================================================
-# STEP 6: PROCESS CLUSTER (Process multiple files)
-# ============================================================================
-
-async def process_cluster(cluster_id, files):
+async def process_cluster(cluster_id: str, files: List[dict]):
     """
-    Process all files in a cluster sequentially.
+    Process all files in a cluster using ThreadPoolExecutor.
     
-    Sequential processing ensures stability with Whisper model.
+    OPTIMIZED APPROACH:
+    - No multiprocessing (Whisper medium is heavy)
+    - ThreadPoolExecutor with max_workers=1 (Whisper is thread-locked for safety)
+    - All models loaded once globally
+    - Each thread reuses same models
     """
     print(f"\n🚀 Processing {len(files)} files for cluster {cluster_id}")
+    print(f"📊 Processing files sequentially (Whisper requires thread lock)")
     
-    # Connect to database
+    # Connect to DB
     db_client = AsyncIOMotorClient(os.getenv("MONGO_URI"))
     db = db_client[os.getenv("MONGODB_DB_NAME", "sarcis")]
     
@@ -498,12 +498,13 @@ async def process_cluster(cluster_id, files):
             {"$set": {"status": "processing"}}
         )
     
-    # Process files one by one
+    # Process files sequentially (Whisper is thread-locked anyway)
     cluster_start = time.time()
-    results = []
     
+    # Process one at a time since Whisper uses a lock
+    results = []
     for file in files:
-        result = process_file(file, cluster_id)
+        result = process_single_file(file, cluster_id)
         results.append(result)
     
     cluster_time = time.time() - cluster_start
@@ -512,14 +513,13 @@ async def process_cluster(cluster_id, files):
     # Save results to database
     for result in results:
         if result["status"] == "success":
-            # Check if result already exists
+            # Check if result exists
             existing = await db.results.find_one({
                 "cluster_id": result["cluster_id"],
                 "file_id": result["file_id"]
             })
             
             if existing:
-                # Update existing result
                 await db.results.update_one(
                     {"_id": existing["_id"]},
                     {"$set": {
@@ -529,7 +529,6 @@ async def process_cluster(cluster_id, files):
                     }}
                 )
             else:
-                # Insert new result
                 await db.results.insert_one({
                     "cluster_id": result["cluster_id"],
                     "file_id": result["file_id"],
@@ -539,36 +538,27 @@ async def process_cluster(cluster_id, files):
                     "language": result.get("language", "en")
                 })
             
-            # Update file status to done
+            # Update file status
             await db.files.update_one(
                 {"_id": ObjectId(result["file_id"])},
                 {"$set": {"status": "done"}}
             )
         else:
-            # Update file status to failed
             await db.files.update_one(
                 {"_id": ObjectId(result["file_id"])},
                 {"$set": {"status": "failed", "error": result.get("error", "Unknown error")}}
             )
     
     # Calculate cluster insights
-    await calculate_insights(cluster_id, db)
+    await calculate_cluster_insights(cluster_id, db)
     
-    print("🎉 Cluster processing complete!")
+    print(f"🎉 Cluster processing complete!")
+    
     db_client.close()
 
 
-# ============================================================================
-# STEP 7: CALCULATE INSIGHTS (Aggregate cluster statistics)
-# ============================================================================
-
-async def calculate_insights(cluster_id, db):
-    """
-    Calculate aggregated insights for the entire cluster.
-    
-    Aggregates: events, sentiments, priorities, intents
-    """
-    # Get all results for this cluster
+async def calculate_cluster_insights(cluster_id: str, db):
+    """Calculate aggregated cluster-level insights"""
     results = await db.results.find({"cluster_id": cluster_id}).to_list(1000)
     
     if not results:
@@ -577,7 +567,7 @@ async def calculate_insights(cluster_id, db):
     total_files = len(results)
     total_segments = sum(len(r["segments"]) for r in results)
     
-    # Collect all data
+    # Aggregate metrics
     all_events = []
     all_sentiments = []
     all_priorities = []
@@ -590,38 +580,38 @@ async def calculate_insights(cluster_id, db):
             all_priorities.append(segment["priority"])
             all_intents.append(segment["intent"])
     
-    # Count occurrences
+    from collections import Counter
+    
     event_counts = Counter(all_events)
     sentiment_counts = Counter(all_sentiments)
     priority_counts = Counter(all_priorities)
     intent_counts = Counter(all_intents)
     
     # Calculate percentages
-    complaint_pct = round((event_counts.get("complaint", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
-    urgency_pct = round((event_counts.get("urgency", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
-    negative_pct = round((sentiment_counts.get("negative", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
-    high_priority_pct = round(((priority_counts.get("high", 0) + priority_counts.get("critical", 0)) / total_segments * 100) if total_segments > 0 else 0, 1)
+    complaint_percentage = round((event_counts.get("complaint", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
+    urgency_percentage = round((event_counts.get("urgency", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
+    negative_percentage = round((sentiment_counts.get("negative", 0) / total_segments * 100) if total_segments > 0 else 0, 1)
+    high_priority_percentage = round(((priority_counts.get("high", 0) + priority_counts.get("critical", 0)) / total_segments * 100) if total_segments > 0 else 0, 1)
     
-    # Build insights object
     insights = {
         "cluster_id": cluster_id,
         "total_files": total_files,
         "total_segments": total_segments,
-        "complaint_percentage": complaint_pct,
-        "urgency_percentage": urgency_pct,
-        "negative_percentage": negative_pct,
-        "high_priority_percentage": high_priority_pct,
+        "complaint_percentage": complaint_percentage,
+        "urgency_percentage": urgency_percentage,
+        "negative_percentage": negative_percentage,
+        "high_priority_percentage": high_priority_percentage,
         "top_events": dict(event_counts.most_common(5)),
         "top_intents": dict(intent_counts.most_common(5)),
         "sentiment_distribution": dict(sentiment_counts),
         "priority_distribution": dict(priority_counts)
     }
     
-    # Save to database
+    # Save insights
     await db.cluster_insights.update_one(
         {"cluster_id": cluster_id},
         {"$set": insights},
         upsert=True
     )
     
-    print("📊 Cluster insights calculated")
+    print(f"📊 Cluster insights calculated")

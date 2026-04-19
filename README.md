@@ -1,129 +1,228 @@
 # SARCIS - Smart Audio Risk & Context Intelligence System
 
-An AI-powered audio analysis platform that extracts deep insights from customer service call recordings using advanced speech recognition, translation, and LLM-based intelligence.
+> An AI-powered audio analysis platform that extracts deep insights from customer service call recordings using advanced speech recognition, translation, and LLM-based intelligence.
 
-## 🚀 Features
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **Ultra-Fast Transcription**: Groq Whisper API (3-10 sec per file) with local fallback
-- **Advanced Speech Recognition**: Whisper large-v3 (Groq) or medium (local)
-- **Multilingual Support**: Automatic Hindi/English/Hinglish translation
-- **LLM Intelligence**: 70B parameter model (Llama 3.3) for contextual analysis
-- **Rich Insights**: Sentiment, intent, risk level, urgency, and entity extraction
-- **Real-time Dashboard**: Interactive UI for cluster and file-level analytics
-- **Audio Playback**: Synchronized audio player with segment navigation
-- **Optimized Performance**: 5-15 seconds per file (with Groq API)
+## 📋 Problem Statement
 
-## 📊 What It Analyzes
+Customer service teams receive thousands of audio recordings daily but lack efficient tools to:
+- Quickly identify high-priority issues and complaints
+- Detect sentiment and emotional states in conversations
+- Extract actionable insights from multilingual calls
+- Prioritize urgent cases requiring immediate attention
+- Analyze patterns across large volumes of recordings
 
-For each audio file, SARCIS provides:
+**SARCIS solves this** by automatically transcribing, translating, and analyzing audio files to provide rich, actionable intelligence in seconds.
 
-- **Sentiment Analysis**: Type (positive/negative/aggressive/frustrated) + intensity
-- **Intent Detection**: Primary purpose of the call
+## ✨ Key Features
+
+### 🚀 Ultra-Fast Processing
+- **Groq Whisper API**: 3-10 seconds per file transcription
+- **Automatic Fallback**: Local Whisper model ensures 100% reliability
+- **Total Processing**: 5-15 seconds per audio file
+
+### 🧠 Advanced AI Analysis
+- **Speech Recognition**: Whisper large-v3 (Groq) with medium fallback
+- **Multilingual Support**: Hindi, English, and Hinglish translation
+- **LLM Intelligence**: Llama 3.3 70B for contextual understanding
+
+### 📊 Rich Insights Extraction
+- **Sentiment Analysis**: Type (positive/negative/aggressive) + intensity score
+- **Intent Detection**: Identify the primary purpose of each call
 - **Risk Assessment**: Low, moderate, high, or extreme risk levels
-- **Priority Classification**: Critical, high, medium, or low priority
+- **Priority Classification**: Critical, high, medium, or low urgency
 - **Event Detection**: Complaints, threats, escalations, technical issues
 - **Entity Extraction**: Names, products, amounts, dates mentioned
-- **Summary**: Concise explanation of the conversation
 
-## 🛠️ Tech Stack
+### 💻 Interactive Dashboard
+- Real-time cluster and file-level analytics
+- Audio playback with segment navigation
+- Visual insights and trend analysis
+- File ranking by importance score
 
-### Backend
+## 🏗️ Architecture
+
+### System Overview
+
+```
+┌─────────────┐
+│   Frontend  │  Next.js 14 + TypeScript + Tailwind CSS
+│  (React UI) │
+└──────┬──────┘
+       │ HTTP/REST
+       ↓
+┌─────────────┐
+│   Backend   │  FastAPI + Python
+│  (API Layer)│
+└──────┬──────┘
+       │
+       ├─→ MongoDB (Data Storage)
+       │
+       └─→ Processing Pipeline:
+           ┌──────────────────────────────────┐
+           │ 1. Audio Upload                  │
+           ├──────────────────────────────────┤
+           │ 2. Transcription                 │
+           │    ├─→ Try: Groq Whisper API     │
+           │    └─→ Fallback: Local Whisper   │
+           ├──────────────────────────────────┤
+           │ 3. Translation (if needed)       │
+           │    └─→ Helsinki NLP (Hi→En)      │
+           ├──────────────────────────────────┤
+           │ 4. LLM Analysis                  │
+           │    └─→ Groq Llama 3.3 70B        │
+           ├──────────────────────────────────┤
+           │ 5. Insights Generation           │
+           │    └─→ Segment + Cluster Level   │
+           └──────────────────────────────────┘
+```
+
+### Tech Stack
+
+**Backend**
 - **FastAPI**: Modern Python web framework
 - **MongoDB**: Document database for flexible data storage
-- **Whisper**: OpenAI's speech recognition model
-- **Groq**: Fast LLM inference with Llama 3.3 70B
+- **Whisper**: OpenAI's speech recognition (local fallback)
+- **Groq**: Fast LLM inference (Whisper + Llama 3.3 70B)
 - **Transformers**: Helsinki NLP for Hindi-English translation
 
-### Frontend
+**Frontend**
 - **Next.js 14**: React framework with App Router
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first styling
 - **Framer Motion**: Smooth animations
 
-## 📦 Installation
+## 🔄 How It Works
+
+### 1. Audio Upload
+Users upload MP3 audio files organized into clusters (projects/campaigns).
+
+### 2. Transcription (Fast)
+- **Primary**: Groq Whisper API transcribes audio in 3-10 seconds
+- **Fallback**: Local Whisper model (40-90s) if API fails
+- **Output**: Full transcript with timestamps
+
+### 3. Translation (If Needed)
+- Detects language (Hindi/English/Hinglish)
+- Translates non-English content to English
+- Preserves original text for reference
+
+### 4. LLM Analysis (Once per File)
+- Sends full transcript to Llama 3.3 70B
+- Extracts comprehensive intelligence:
+  - Overall sentiment + intensity
+  - Primary intent
+  - Risk level and urgency
+  - Key events and entities
+  - Contextual summary
+
+### 5. Insights Generation
+- **Segment Level**: Each audio segment inherits file-level intelligence
+- **File Level**: Summary statistics and top issues
+- **Cluster Level**: Aggregated analytics across all files
+
+### 6. Dashboard Visualization
+- Interactive UI displays all insights
+- Audio playback with segment jumping
+- Filtering and sorting by priority/sentiment
+- Export capabilities for reporting
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
 - MongoDB Atlas account (or local MongoDB)
-- Groq API key ([Get one here](https://console.groq.com/))
+- Groq API key ([Get free key](https://console.groq.com/))
 
-### Backend Setup
+### Installation
 
+**1. Clone the repository**
 ```bash
-# Navigate to backend directory
+git clone https://github.com/satvik-sharma-05/SARCIS-.git
+cd SARCIS-
+```
+
+**2. Backend Setup**
+```bash
 cd backend
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy environment template
+# Configure environment
 cp ../.env.example .env
+# Edit .env with your MongoDB URI and Groq API key
 
-# Edit .env with your credentials
-# - Add your MongoDB URI
-# - Add your Groq API key
-# - Configure Whisper model (default: medium)
-
-# Start the backend
+# Start backend
 python main.py
 ```
 
-The backend will start on `http://localhost:8000`
+Backend runs on `http://localhost:8000`
 
-### Frontend Setup
-
+**3. Frontend Setup**
 ```bash
-# Navigate to frontend directory
 cd frontend
 
 # Install dependencies
 npm install
 
-# Copy environment template
+# Configure environment
 cp .env.example .env.local
 
-# Start the development server
+# Start development server
 npm run dev
 ```
 
-The frontend will start on `http://localhost:3000`
+Frontend runs on `http://localhost:3000`
 
-## 🎯 Quick Start
+### Usage
 
 1. **Sign Up**: Create an account at http://localhost:3000/signup
-2. **Create Cluster**: Organize your audio files into clusters
-3. **Upload Files**: Upload MP3 audio files (customer service recordings)
-4. **Analyze**: Click "Analyze" to process the files
-5. **View Results**: Explore insights, segments, and analytics
+2. **Create Cluster**: Organize your audio files into projects
+3. **Upload Files**: Upload MP3 audio recordings
+4. **Analyze**: Click "Analyze" to process files (5-15 seconds each)
+5. **Explore**: View insights, play audio, and export results
 
-## 📈 Performance
+## 📊 Performance Metrics
 
-- **Processing Speed**: 5-15 seconds per audio file (with Groq API)
-- **Fallback Speed**: 45-95 seconds per file (local Whisper if API fails)
-- **Model Loading**: ~30 seconds on first startup
-- **Accuracy**: High (Whisper large-v3 via Groq + 70B LLM)
-- **Reliability**: 100% uptime with automatic fallback
+| Metric | Value | Details |
+|--------|-------|---------|
+| **Transcription** | 3-10s | Groq Whisper API (primary) |
+| **Fallback** | 40-90s | Local Whisper (if API fails) |
+| **Translation** | 1-2s | Helsinki NLP model |
+| **LLM Analysis** | 1-3s | Groq Llama 3.3 70B |
+| **Total** | **5-15s** | Complete processing per file |
+| **Accuracy** | High | Whisper large-v3 + 70B LLM |
+| **Reliability** | 100% | Automatic fallback system |
 
 ## 🔧 Configuration
 
-### Whisper Model Options
+### Environment Variables
 
-In `.env`, you can configure the Whisper model:
-
+**Backend (.env)**
 ```env
-WHISPER_MODEL=medium  # Recommended (balanced speed/accuracy)
-# WHISPER_MODEL=small  # Faster but less accurate
-# WHISPER_MODEL=large  # More accurate but slower
+# MongoDB
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/
+MONGODB_DB_NAME=sarcis
+
+# JWT Secret
+JWT_SECRET_KEY=your-secret-key-change-in-production
+
+# Whisper Model (for fallback)
+WHISPER_MODEL=medium
+
+# Groq API
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
-### Processing Workers
-
-In `backend/services/processor.py`, you can adjust parallel processing:
-
-```python
-# Currently set to sequential (most stable)
-# For parallel processing, modify the process_cluster function
+**Frontend (.env.local)**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ## 📁 Project Structure
@@ -131,7 +230,7 @@ In `backend/services/processor.py`, you can adjust parallel processing:
 ```
 SARCIS/
 ├── backend/
-│   ├── main.py              # FastAPI application
+│   ├── main.py              # FastAPI application & routes
 │   ├── db.py                # MongoDB connection
 │   ├── models.py            # Data models
 │   ├── requirements.txt     # Python dependencies
@@ -139,43 +238,42 @@ SARCIS/
 │       ├── auth.py          # Authentication logic
 │       └── processor.py     # Audio processing pipeline
 ├── frontend/
-│   ├── app/                 # Next.js pages
-│   ├── lib/                 # API client & utilities
+│   ├── app/                 # Next.js pages (App Router)
+│   │   ├── login/           # Login page
+│   │   ├── signup/          # Signup page
+│   │   ├── dashboard/       # Main dashboard
+│   │   ├── cluster/[id]/    # Cluster details
+│   │   └── results/[id]/    # Analysis results
+│   ├── lib/
+│   │   ├── api.ts           # API client
+│   │   └── auth-context.tsx # Auth context
 │   └── package.json         # Node dependencies
 ├── .env.example             # Environment template
-└── README.md                # This file
+├── .gitignore               # Git ignore rules
+├── LICENSE                  # MIT License
+├── README.md                # This file
+└── Tutorial.md              # Detailed technical guide
 ```
 
-## � Troubleshooting
+## 🎯 Use Cases
 
-### "sacremoses not found"
-```bash
-pip install sacremoses==0.1.1
-```
+- **Customer Service**: Analyze support call recordings for quality assurance
+- **Sales**: Identify objections and sentiment in sales calls
+- **Compliance**: Detect policy violations and risk indicators
+- **Market Research**: Extract insights from customer interviews
+- **Training**: Evaluate agent performance and identify coaching opportunities
 
-### "Groq API key invalid"
-Check your `.env` file has a valid API key from https://console.groq.com/
+## 🔒 Security
 
-### "Out of memory"
-Reduce the Whisper model size in `.env`:
-```env
-WHISPER_MODEL=small
-```
-
-### "Slow transcription"
-This is normal for Whisper medium on CPU. Expected: 40-90 seconds per file.
-
-## 📚 Documentation
-
-- [Groq Whisper Upgrade](GROQ_WHISPER_UPGRADE.md) - 10-20x faster transcription
-- [Optimization Guide](OPTIMIZATION_COMPLETE.md) - Performance improvements
-- [Threading Fix](THREADING_FIX.md) - PyTorch thread safety
-- [Quick Start](QUICK_START.md) - Fast setup guide
-- [API Documentation](API_DOCUMENTATION.md) - API endpoints
+- JWT-based authentication
+- Password hashing with bcrypt
+- Environment variable protection
+- MongoDB connection security
+- API key management
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
@@ -183,17 +281,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- OpenAI Whisper for speech recognition
-- Groq for fast LLM inference
-- Helsinki NLP for translation models
-- FastAPI and Next.js communities
+- [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition
+- [Groq](https://groq.com/) for fast LLM inference
+- [Helsinki NLP](https://huggingface.co/Helsinki-NLP) for translation models
+- [FastAPI](https://fastapi.tiangolo.com/) and [Next.js](https://nextjs.org/) communities
 
-## 📞 Support
+## 📞 Contact
 
-For issues and questions:
-- Open an issue on GitHub
-- Check existing documentation
-- Review troubleshooting guide
+For questions or support, please open an issue on GitHub.
 
 ---
 
