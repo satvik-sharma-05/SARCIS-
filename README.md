@@ -1,357 +1,197 @@
 # SARCIS - Smart Audio Risk & Context Intelligence System
 
-🧠 **Cluster-based Audio Intelligence Platform with Parallel Processing**
+An AI-powered audio analysis platform that extracts deep insights from customer service call recordings using advanced speech recognition, translation, and LLM-based intelligence.
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green.svg)](https://www.mongodb.com/)
+## 🚀 Features
 
----
+- **Advanced Speech Recognition**: Whisper medium model for high-accuracy transcription
+- **Multilingual Support**: Automatic Hindi/English/Hinglish translation
+- **LLM Intelligence**: 70B parameter model (Llama 3.3) for contextual analysis
+- **Rich Insights**: Sentiment, intent, risk level, urgency, and entity extraction
+- **Real-time Dashboard**: Interactive UI for cluster and file-level analytics
+- **Audio Playback**: Synchronized audio player with segment navigation
+- **Optimized Performance**: 1-2 minutes per file processing time
 
-## 🚀 What It Does
+## 📊 What It Analyzes
 
-Upload audio files → Organize into clusters → Process in parallel → Extract multi-layered insights → Interactive results
+For each audio file, SARCIS provides:
 
-### Key Features
-- 🔐 **Authentication** - Secure signup/login
-- 📁 **Cluster Management** - Organize audio files into projects
-- 📤 **Multi-file Upload** - Drag & drop .wav, .mp3, .m4a
-- ⚡ **Parallel Processing** - 4 workers processing simultaneously
-- 🧠 **Multi-layered AI Insights**:
-  - Events (complaint, urgency, escalation, etc.)
-  - Sentiment (positive/negative/neutral)
-  - Intent (refund_request, technical_issue, etc.)
-  - Priority (critical/high/medium/low)
-  - Risk Signals (legal_threat, fraud_allegation, etc.)
-  - Keywords extraction
-  - Confidence scores
-- 📊 **Cluster Analytics** - Aggregated insights across all files
-- 🎧 **Audio Playback** - Click segment → jump to timestamp
-- 📈 **Interactive Dashboard** - Visual insights and trends
+- **Sentiment Analysis**: Type (positive/negative/aggressive/frustrated) + intensity
+- **Intent Detection**: Primary purpose of the call
+- **Risk Assessment**: Low, moderate, high, or extreme risk levels
+- **Priority Classification**: Critical, high, medium, or low priority
+- **Event Detection**: Complaints, threats, escalations, technical issues
+- **Entity Extraction**: Names, products, amounts, dates mentioned
+- **Summary**: Concise explanation of the conversation
 
----
+## 🛠️ Tech Stack
 
-## 🧩 Tech Stack
+### Backend
+- **FastAPI**: Modern Python web framework
+- **MongoDB**: Document database for flexible data storage
+- **Whisper**: OpenAI's speech recognition model
+- **Groq**: Fast LLM inference with Llama 3.3 70B
+- **Transformers**: Helsinki NLP for Hindi-English translation
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js 14, Tailwind CSS, Framer Motion, WaveSurfer.js |
-| **Backend** | FastAPI, Python multiprocessing |
-| **Database** | MongoDB (Motor async driver) |
-| **AI/ML** | OpenAI Whisper, Hugging Face Transformers |
-| **Storage** | Local filesystem (/uploads) |
-| **Deployment** | Vercel (frontend), Render (backend), MongoDB Atlas |
-
----
+### Frontend
+- **Next.js 14**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first styling
+- **Framer Motion**: Smooth animations
 
 ## 📦 Installation
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.10+
 - Node.js 18+
-- MongoDB (local or Atlas)
+- MongoDB Atlas account (or local MongoDB)
+- Groq API key ([Get one here](https://console.groq.com/))
 
-### 1. Clone Repository
-```bash
-git clone <your-repo>
-cd SARCIS
-```
+### Backend Setup
 
-### 2. Backend Setup
 ```bash
+# Navigate to backend directory
 cd backend
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Create .env file
-cp .env.example .env
-# Edit .env with your MongoDB URI and JWT secret
+# Copy environment template
+cp ../.env.example .env
 
-# Run server
+# Edit .env with your credentials
+# - Add your MongoDB URI
+# - Add your Groq API key
+# - Configure Whisper model (default: medium)
+
+# Start the backend
 python main.py
 ```
 
-Backend runs on: **http://localhost:8000**
+The backend will start on `http://localhost:8000`
 
-### 3. Frontend Setup
+### Frontend Setup
+
 ```bash
+# Navigate to frontend directory
 cd frontend
 
 # Install dependencies
 npm install
 
-# Create .env.local
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+# Copy environment template
+cp .env.example .env.local
 
-# Run development server
+# Start the development server
 npm run dev
 ```
 
-Frontend runs on: **http://localhost:3000**
+The frontend will start on `http://localhost:3000`
 
----
+## 🎯 Quick Start
 
-## 🔧 Environment Variables
+1. **Sign Up**: Create an account at http://localhost:3000/signup
+2. **Create Cluster**: Organize your audio files into clusters
+3. **Upload Files**: Upload MP3 audio files (customer service recordings)
+4. **Analyze**: Click "Analyze" to process the files
+5. **View Results**: Explore insights, segments, and analytics
 
-### Backend (.env)
+## 📈 Performance
+
+- **Processing Speed**: 1-2 minutes per audio file
+- **Model Loading**: ~30 seconds on first startup
+- **Accuracy**: High (Whisper medium + 70B LLM)
+- **Scalability**: Sequential processing for stability
+
+## 🔧 Configuration
+
+### Whisper Model Options
+
+In `.env`, you can configure the Whisper model:
+
 ```env
-MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/
-MONGODB_DB_NAME=sarcis
-JWT_SECRET_KEY=your-secret-key-change-in-production
-WHISPER_MODEL=base
+WHISPER_MODEL=medium  # Recommended (balanced speed/accuracy)
+# WHISPER_MODEL=small  # Faster but less accurate
+# WHISPER_MODEL=large  # More accurate but slower
 ```
 
-### Frontend (.env.local)
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+### Processing Workers
+
+In `backend/services/processor.py`, you can adjust parallel processing:
+
+```python
+# Currently set to sequential (most stable)
+# For parallel processing, modify the process_cluster function
 ```
-
----
-
-## 🎯 Usage Flow
-
-1. **Sign up / Login** at http://localhost:3000
-2. **Create a cluster** (e.g., "Customer Calls")
-3. **Upload audio files** (drag & drop)
-4. **Click "Run Analysis"** - processes in parallel
-5. **View results** with:
-   - Timestamp-level insights
-   - Cluster analytics dashboard
-   - Interactive audio playback
-
----
-
-## 🏗️ Architecture
-
-```
-Frontend (Next.js)
-         ↓
-FastAPI Backend
-         ↓
-MongoDB (clusters, files, results, insights)
-         ↓
-Local File Storage (/uploads)
-         ↓
-Multiprocessing Engine (4 parallel workers)
-         ↓
-AI Pipeline (Whisper + NLP + Rules)
-         ↓
-Results stored → MongoDB
-         ↓
-Frontend fetches & displays
-```
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed system design.
-
----
-
-## 📊 Insights Layers
-
-### Per Segment
-```json
-{
-  "start": 10.2,
-  "end": 14.5,
-  "text": "This is not working, fix it now!",
-  "events": ["complaint", "urgency"],
-  "sentiment": "negative",
-  "intent": "technical_issue",
-  "priority": "high",
-  "keywords": ["not working", "fix"],
-  "risk_signals": [],
-  "confidence": 0.87
-}
-```
-
-### Per File
-```json
-{
-  "total_segments": 45,
-  "negative_percentage": 60.5,
-  "high_priority_count": 12,
-  "top_issue": "complaint",
-  "overall_sentiment": "negative"
-}
-```
-
-### Per Cluster
-```json
-{
-  "total_files": 100,
-  "total_segments": 4500,
-  "complaint_percentage": 45.2,
-  "urgency_percentage": 23.1,
-  "negative_percentage": 38.7,
-  "high_priority_percentage": 15.3
-}
-```
-
----
-
-## ⚡ Performance
-
-| Files | Processing Time |
-|-------|----------------|
-| 50    | 5-10 minutes   |
-| 100   | 10-20 minutes  |
-| 500   | ~1 hour        |
-
-**Optimization:**
-- 4 parallel workers (multiprocessing)
-- Efficient Whisper base model
-- Batch database operations
-- Async I/O operations
-
----
-
-## 🔌 API Endpoints
-
-### Authentication
-```
-POST   /auth/signup
-POST   /auth/login
-```
-
-### Clusters
-```
-GET    /clusters
-POST   /clusters
-DELETE /clusters/{id}
-GET    /clusters/{id}/files
-GET    /clusters/{id}/insights
-```
-
-### Files
-```
-POST   /upload
-```
-
-### Analysis
-```
-POST   /analyze/{cluster_id}
-GET    /results/{cluster_id}
-```
-
----
 
 ## 📁 Project Structure
 
 ```
-backend/
-├── main.py              # FastAPI app
-├── db.py                # MongoDB connection
-├── models.py            # Data models
-├── services/
-│   ├── auth.py          # Authentication
-│   └── processor.py     # Audio processing (multiprocessing)
-├── uploads/             # Audio files storage
-└── requirements.txt
-
-frontend/
-├── app/
-│   ├── page.tsx         # Home
-│   ├── login/           # Login page
-│   ├── signup/          # Signup page
-│   ├── dashboard/       # Clusters list
-│   ├── cluster/[id]/    # Cluster detail + upload
-│   └── results/[id]/    # Analysis results + insights
-├── lib/
-│   └── api.ts           # API client
-└── package.json
+SARCIS/
+├── backend/
+│   ├── main.py              # FastAPI application
+│   ├── db.py                # MongoDB connection
+│   ├── models.py            # Data models
+│   ├── requirements.txt     # Python dependencies
+│   └── services/
+│       ├── auth.py          # Authentication logic
+│       └── processor.py     # Audio processing pipeline
+├── frontend/
+│   ├── app/                 # Next.js pages
+│   ├── lib/                 # API client & utilities
+│   └── package.json         # Node dependencies
+├── .env.example             # Environment template
+└── README.md                # This file
 ```
 
----
+## � Troubleshooting
 
-## 🚀 Deployment
-
-### Frontend (Vercel)
+### "sacremoses not found"
 ```bash
-cd frontend
-vercel deploy
+pip install sacremoses==0.1.1
 ```
 
-### Backend (Render)
-1. Create new Web Service
-2. Connect GitHub repo
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `python main.py`
-5. Add environment variables
+### "Groq API key invalid"
+Check your `.env` file has a valid API key from https://console.groq.com/
 
-### Database (MongoDB Atlas)
-1. Create free cluster
-2. Get connection string
-3. Add to backend .env
+### "Out of memory"
+Reduce the Whisper model size in `.env`:
+```env
+WHISPER_MODEL=small
+```
 
----
-
-## 🎓 Interview Talking Points
-
-### One-Liner
-> "A cluster-based audio intelligence platform that uses Python multiprocessing to parallelize audio analysis, extracting multi-layered insights including sentiment, intent, events, and risk signals—all without requiring distributed infrastructure."
-
-### Technical Highlights
-- **Parallel Processing**: 4 workers using Python multiprocessing
-- **Multi-layered Insights**: 8 layers of analysis per segment
-- **Scalable Design**: Handles 100s of files efficiently
-- **Clean Architecture**: No Redis, Celery, or Docker complexity
-- **Production-Ready**: Complete user flow with authentication
-
-### Architecture Decisions
-- **Why multiprocessing?** - Fast, simple, no external dependencies
-- **Why MongoDB?** - Flexible schema for varying insights
-- **Why FastAPI?** - High performance, async support, auto docs
-- **Why Next.js?** - SSR, great DX, easy deployment
-
----
-
-## ⚠️ Limitations
-
-### What This System IS
-✅ Fast parallel processing (4-6 files at once)
-✅ Multi-layered AI insights
-✅ Scalable to hundreds of files
-✅ Production-ready MVP
-✅ Free to run locally
-
-### What This System IS NOT
-❌ Distributed system (no Kubernetes)
-❌ Real-time streaming
-❌ Infinite scalability (CPU-bound)
-❌ Cloud-native (single server)
-
----
+### "Slow transcription"
+This is normal for Whisper medium on CPU. Expected: 40-90 seconds per file.
 
 ## 📚 Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed system design
-- [API Docs](http://localhost:8000/docs) - Interactive API documentation (when running)
-
----
+- [Optimization Guide](OPTIMIZATION_COMPLETE.md) - Performance improvements
+- [Threading Fix](THREADING_FIX.md) - PyTorch thread safety
+- [Quick Start](QUICK_START.md) - Fast setup guide
+- [API Documentation](API_DOCUMENTATION.md) - API endpoints
 
 ## 🤝 Contributing
 
-This is a portfolio/learning project. Feel free to fork and customize!
-
----
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
-MIT License - See LICENSE file
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- OpenAI Whisper for speech recognition
+- Groq for fast LLM inference
+- Helsinki NLP for translation models
+- FastAPI and Next.js communities
+
+## 📞 Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review troubleshooting guide
 
 ---
 
-## 🎯 What You Built
-
-✅ **AI system** - Real ML/NLP pipeline
-✅ **Scalable design** - Parallel processing
-✅ **Production workflow** - Complete user flow
-✅ **Multi-layered insights** - Not just "threat detection"
-✅ **Interview-ready** - Can explain architecture clearly
-
----
-
-**Built with ❤️ as a clean, production-ready MVP**
-
-For questions or feedback, open an issue!
+**Built with ❤️ for better customer service insights**
