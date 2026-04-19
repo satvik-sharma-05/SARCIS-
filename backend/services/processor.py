@@ -67,6 +67,110 @@ print("🎉 All models loaded successfully!\n")
 
 # ============= HELPER FUNCTIONS =============
 
+def transcribe_with_groq(audio_path: Path) -> dict:
+    """
+    Transcribe audio using Groq Whisper API (fast cloud-based).
+    Returns dict with 'text', 'language', and 'segments'.
+    """
+    if groq_client is None:
+        raise Exception("Groq client not initialized")
+    
+    try:
+        with open(audio_path, "rb") as audio_file:
+            # Call Groq Whisper API
+            response = groq_client.audio.transcriptions.create(
+                file=(audio_path.name, audio_file.read()),
+                model="whisper-large-v3",
+                response_format="verbose_json",
+                language="hi",
+                temperature=0.0
+            )
+        
+        # Convert Groq response to Whisper-compatible format
+        result = {
+            "text": response.text,
+            "language": getattr(response, "language", "hi"),
+            "segments": []
+        }
+        
+        # Parse segments if available
+        if hasattr(response, "segments") and response.segments:
+            for seg in response.segments:
+                result["segments"].append({
+                    "start": seg.get("start", 0),
+                    "end": seg.get("end", 0),
+                    "text": seg.get("text", ""),
+                    "no_speech_prob": 0.0  # Groq doesn't provide this
+                })
+        else:
+            # If no segments, create a single segment with full text
+            result["segments"] = [{
+                "start": 0.0,
+                "end": 0.0,
+                "text": response.text,
+                "no_speech_prob": 0.0
+            }]
+        
+        return result
+    
+    except Exception as e:
+        raise Exception(f"Groq transcription failed: {str(e)}")
+
+
+def transcribe_local(audio_path: Path) -> dict:
+    """
+    Transcribe audio using local OpenAI Whisper model (fallback).
+    Returns dict with 'text', 'language', and 'segments'.
+    """
+    # Use lock to ensure only one thread uses Whisper at a time
+    with whisper_lock:
+        result = whisper_model.transcribe(
+            str(audio_path.absolute()),
+            language="hi",
+            task="transcribe",
+            temperature=0.0,
+            beam_size=5,
+            best_of=5,
+            condition_on_previous_text=False,
+            compression_ratio_threshold=2.4,
+            logprob_threshold=-1.0,
+            no_speech_threshold=0.6
+        )
+    
+    return result
+
+
+def transcribe(audio_path: Path) -> tuple[dict, str, float]:
+    """
+    Transcribe audio with Groq API (fast) and fallback to local Whisper.
+    
+    Returns:
+        tuple: (result_dict, method_used, time_taken)
+    """
+    # Try Groq first (fast cloud API)
+    try:
+        print(f"  ⚡ Using Groq Whisper API...")
+        start = time.time()
+        result = transcribe_with_groq(audio_path)
+        elapsed = time.time() - start
+        print(f"  ✅ Groq transcription: {elapsed:.2f}s")
+        return result, "groq", elapsed
+    
+    except Exception as e:
+        print(f"  ⚠️ Groq failed: {e}")
+        print(f"  🔁 Falling back to local Whisper (medium)...")
+        
+        # Fallback to local Whisper
+        try:
+            start = time.time()
+            result = transcribe_local(audio_path)
+            elapsed = time.time() - start
+            print(f"  ✅ Local transcription: {elapsed:.2f}s")
+            return result, "local", elapsed
+        
+        except Exception as local_error:
+            raise Exception(f"Both transcription methods failed. Groq: {e}, Local: {local_error}")
+
 def translate_full_text(text: str, source_lang: str) -> Optional[str]:
     """
     Translate full transcript ONCE (not per segment).
@@ -269,27 +373,13 @@ def process_single_file(file_record: dict, cluster_id: str) -> dict:
             print(f"     Relative path: {file_path_str}")
             raise FileNotFoundError(f"Audio file not found: {file_path}")
         
-        # STEP 1: Transcribe with Whisper (thread-safe with lock)
+        # STEP 1: Transcribe with Groq API (with local fallback)
         print(f"  🎤 Transcribing...")
         transcribe_start = time.time()
         
-        # Use lock to ensure only one thread uses Whisper at a time
-        with whisper_lock:
-            result = whisper_model.transcribe(
-                str(file_path.absolute()),
-                language="hi",
-                task="transcribe",
-                temperature=0.0,
-                beam_size=5,
-                best_of=5,
-                condition_on_previous_text=False,
-                compression_ratio_threshold=2.4,
-                logprob_threshold=-1.0,
-                no_speech_threshold=0.6
-            )
+        result, transcribe_method, transcribe_time = transcribe(file_path)
         
-        transcribe_time = time.time() - transcribe_start
-        print(f"  ✅ Transcribed in {transcribe_time:.2f}s ({len(result['segments'])} segments)")
+        print(f"  ✅ Transcribed in {transcribe_time:.2f}s using {transcribe_method} ({len(result.get('segments', []))} segments)")
         
         detected_language = result.get("language", "hi")
         full_transcript = result.get("text", "").strip()
@@ -356,7 +446,7 @@ def process_single_file(file_record: dict, cluster_id: str) -> dict:
         }
         
         total_time = time.time() - file_start
-        print(f"  ✅ Completed in {total_time:.2f}s (Transcribe: {transcribe_time:.2f}s)")
+        print(f"  ✅ Completed in {total_time:.2f}s (Transcribe[{transcribe_method}]: {transcribe_time:.2f}s)")
         
         return {
             "file_id": str(file_record["_id"]),
@@ -367,7 +457,8 @@ def process_single_file(file_record: dict, cluster_id: str) -> dict:
             "language": detected_language,
             "processing_time": {
                 "total": round(total_time, 2),
-                "transcription": round(transcribe_time, 2)
+                "transcription": round(transcribe_time, 2),
+                "transcription_method": transcribe_method
             },
             "status": "success"
         }
