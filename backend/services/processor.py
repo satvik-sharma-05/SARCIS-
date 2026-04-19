@@ -140,7 +140,7 @@ def transcribe_local(audio_path: Path) -> dict:
     return result
 
 
-def transcribe(audio_path: Path) -> tuple[dict, str, float]:
+def transcribe(audio_path: Path):
     """
     Transcribe audio with Groq API (fast) and fallback to local Whisper.
     
